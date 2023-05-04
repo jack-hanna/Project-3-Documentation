@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/scripts/Menu.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/scripts/Menu.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* Script for menu page interactive elements
+   Developed by
+*/
+/**
+ * Takes a weather code as input and returns a corresponding weather icon class.
+ *
+ * @param {number} weatherCode - A code representing the weather condition.
+ * @returns {string} A string representing the weather icon class.
+ */
+function getWeatherIconClass(weatherCode) {
+   switch (weatherCode) {
+     case 0: // clear
+       return "wi-day-sunny";
+     case 1: // partly cloudy
+     case 2: // cloudy
+       return "wi-day-cloudy";
+     case 3: // overcast
+       return "wi-cloudy";
+     case 45: // foggy
+     case 48: // freezing fog
+       return "wi-fog";
+     case 51: // drizzle
+     case 53: // light rain showers
+     case 55: // moderate rain showers
+     case 56: // light freezing drizzle
+     case 57: // freezing drizzle
+     case 58: // heavy freezing drizzle
+     case 61: // light rain
+     case 63: // moderate rain
+     case 65: // heavy rain
+     case 66: // light freezing rain
+     case 67: // freezing rain
+     case 68: // heavy freezing rain
+       return "wi-rain";
+     case 71: // light snow
+     case 73: // moderate snow
+     case 75: // heavy snow
+     case 77: // snow grains
+     case 80: // rain showers
+     case 81: // heavy rain showers
+     case 82: // ragged rain showers
+       return "wi-showers";
+     case 85: // light snow showers
+     case 86: // heavy snow showers
+       return "wi-snow";
+     case 95: // thunderstorm
+     case 96: // heavy thunderstorm
+     case 99: // thunderstorm with hail
+       return "wi-thunderstorm";
+     default:
+       return "wi-day-sunny"; // default to clear icon
+   }
+ }
+ 
+/**
+ * Updates the weather information on the page based on the current weather conditions.
+ *
+ * @param {boolean} farenheit - A boolean value indicating whether the temperature should be displayed in Farenheit or Celsius.
+ */
+function updateWeather(farenheit){
+   fetch("https://api.open-meteo.com/v1/forecast?latitude=30.612214183103088&amp;longitude=-96.34101092562297&amp;current_weather=true&amp;weathercode=true")
+      .then((response) => response.json())
+      .then((json) =>
+         {
+            document.getElementById("currTempF").innerHTML = (json.current_weather.temperature * 1.8 + 32).toFixed(1) + "F";
+            document.getElementById("currTempC").innerHTML = json.current_weather.temperature.toFixed(1) + "C";
+            switch(json.current_weather.weathercode){
+               case 0:
+               case 1:
+                  document.getElementById("currWeather").innerHTML = "Clear";
+                  break;
+               case 2:
+                  document.getElementById("currWeather").innerHTML = "Partly Cloudy";
+                  break;
+               case 3:
+                  document.getElementById("currWeather").innerHTML = "Overcast";
+                  break;
+               case 45:
+               case 48:
+                  document.getElementById("currWeather").innerHTML = "Foggy";
+                  break;
+               case 51:
+               case 53:
+               case 55:
+                  document.getElementById("currWeather").innerHTML = "Drizzle";
+                  break;
+               case 56:
+               case 57:
+                  document.getElementById("currWeather").innerHTML = "Freezing Drizzle";
+                  break;
+               case 61:
+               case 63:
+               case 65:
+                  document.getElementById("currWeather").innerHTML = "Raining";
+                  break;
+               case 66:
+               case 67:
+                  document.getElementById("currWeather").innerHTML = "Freezing Rain";
+                  break;
+               case 71:
+               case 73:
+               case 75:
+                  document.getElementById("currWeather").innerHTML = "Snowing";
+                  break;
+               case 77:
+                  document.getElementById("currWeather").innerHTML = "Snow Grains";
+                  break;
+               case 80:
+               case 81: 
+               case 82:
+                  document.getElementById("currWeather").innerHTML = "Rain Showers";
+                  break;
+               case 85:
+               case 86:
+                  document.getElementById("currWeather").innerHTML = "Snow Showers";
+                  break;
+               case 95:
+               case 96:
+               case 99:
+                  document.getElementById("currWeather").innerHTML = "Thunderstorm";
+                  break;
+               default:
+                  document.getElementById("currWeather").innerHTML = "Error";
+                  break;
+            }
+            addIcon(getWeatherIconClass(json.current_weather.weathercode));
+         }
+      );
+}
+/**
+ * Adds a weather icon to the HTML document.
+ *
+ * @param {string} url - The URL of the weather icon to add.
+ * @returns {void}
+ */
+function addIcon(url) {
+   const container = document.getElementById("iconContainer");
+   if (container.firstChild) {
+      container.removeChild(container.firstChild);
+   }
+   const img = document.createElement("i");
+   img.classList.add('wi', url); // update to classList.add
+   img.alt = "Weather icon";
+   container.appendChild(img);
+}
+/**
+ * Function to be executed when the window has finished loading.
+ * It calls the `updateWeather` function to update the weather information.
+ *
+ * @function
+ * @global
+ */
+window.onload = function(){
+   updateWeather()
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

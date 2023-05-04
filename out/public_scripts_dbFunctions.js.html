@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/scripts/dbFunctions.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/scripts/dbFunctions.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const dbConnection = require('./dbConnection');
+
+class dbFunctions {
+    constructor() {
+        this.orderItems = [];
+        this.connection = new dbConnection();
+        this.connection.connect();
+    }
+
+    /**
+    This method retrieves a specific element from a table in the database by its row key and column name.
+    @author Ethan Masters
+    @param {String} tableName a String representing the name of the table in the database
+    @param {String} keyColName a String representing the name of the key column in the table
+    @param {String} rowKey a String representing the row key value to search for
+    @param {String} colName a String representing the name of the column to retrieve the element from
+    @returns {String} a String representing the retrieved element from the specified column and row
+    @throw SQLException if a database access error occurs
+    */
+    async getElement(tableName, keyColName, rowKey, colName) {
+        let element;
+        try {
+            const client = await this.connection.pool.connect();
+            const sqlStatement = `SELECT ${colName} FROM ${tableName} WHERE ${keyColName} = '${rowKey}'`;
+            const result = await client.query(sqlStatement);
+            client.release();
+            if (result.rows.length > 0) {
+                return result.rows[0][colName];
+            }
+        } catch (err) {
+            console.error('Error getElement:', err);
+        }
+        return element;
+    }
+
+    /** 
+    Retrieves the data from a specified column of a specified table in the database.
+    @author Ethan Masters 
+    @param {String} tableName the name of the table from which to retrieve the column data.
+    @param {String} colName the name of the column from which to retrieve the data.
+    @return {ArrayList} an ArrayList of String values containing the data from the specified column.
+    @throws SQLException if there is an error executing the SQL statement or accessing the database.
+    */
+    async getColumn(tableName, colName) {
+        const columnData = [];
+
+        try {
+            const client = await this.connection.pool.connect();
+            const sqlStatement = `SELECT ${colName} FROM ${tableName}`;
+            const result = await client.query(sqlStatement);
+    
+            for (const row of result.rows) {
+                const element = row[colName];
+                columnData.push(element);
+            }
+        
+            client.release();
+        } catch (err) {
+            console.error('getColumn: Error accessing database: ', err);
+        }
+    
+        return columnData;
+    }
+
+
+    /** 
+    Retrieves the data from a specified column of a specified table in the database. Limits number of elements to 50. 
+    ONLY used for dispaying sales history
+    @author Ethan Masters 
+    @param {String} tableName the name of the table from which to retrieve the column data.
+    @param {String} colName the name of the column from which to retrieve the data.
+    @return {ArrayList} an ArrayList of String values containing the data from the specified column.
+    @throws SQLException if there is an error executing the SQL statement or accessing the database.
+    */
+    async getColumnLimited(tableName, colName) {
+        const columnData = [];
+
+        try {
+            const client = await this.connection.pool.connect();
+            const sqlStatement = `SELECT ${colName} FROM ${tableName} ORDER BY orderid DESC LIMIT 50`;
+            const result = await client.query(sqlStatement);
+    
+            for (const row of result.rows) {
+                const element = row[colName];
+                columnData.push(element);
+            }
+
+            client.release();
+        } catch (err) {
+            console.error('getColumnLimited: Error accessing' + tableName + 'database: ', err);
+        }
+    
+        return columnData;
+    }
+
+
+    /**
+    Checks if there is enough inventory to fulfill a sale order for a given menu item with a given size.
+    @author Ethan Masters 
+    @param {String} menuItem the name of the menu item to be checked
+    @param {int} sizeIndex the size of the menu item to be checked
+    @return {boolean} true if there is enough inventory to fulfill the sale order, false otherwise
+    */
+    async inStock(ingredient, sizeIndex) {
+        try {
+            const client = await this.connection.pool.connect();
+            
+            // Create SQL statement for sizing
+            const sizingQuery = `SELECT sizing FROM inventory WHERE itemname = '${ingredient}'`;
+            const sizingResult = await client.query(sizingQuery);
+            // Create SQL statement for total inventory size
+            const totalSizeQuery = `SELECT totalsize FROM inventory WHERE itemname = '${ingredient}'`;
+            const totalSizeResult = await client.query(totalSizeQuery);
+            let size = "";
+            let totalSize = "";
+            
+            client.release();
+            
+            if (sizingResult.rows.length > 0 &amp;&amp; totalSizeResult.rows.length > 0) {
+                // Get sizing list as a string
+                size = sizingResult.rows[0].sizing;
+        
+                // Get total size as a string
+                totalSize = totalSizeResult.rows[0].totalsize;
+        
+                // Split sizing list string into an array
+                const sizingList = size.split(", ");
+        
+                // Convert to numbers
+                const totalSizeNumber = parseFloat(totalSize);
+                const sizingNumber = parseFloat(sizingList[sizeIndex]);
+        
+                // Compute boolean
+                if (totalSizeNumber > sizingNumber) {
+                    console.log("Item in stock");
+                    return true;
+                }
+            }
+        } catch (err) {
+                console.error('inStock: Error accessing database:', err.message);
+        } 
+        console.log(ingredient, "Not in Stock");
+        return false;
+    }
+
+
+    /**
+    Adds the sale information of a menu item to the sales history table in the database.
+    @author Ethan Masters 
+    @param {String} menuItem the name of the menu item being sold
+    @param {float} sizePrice the price of the size of the menu item being sold
+    @param {int} ID the ID of the customer who purchased the menu item
+    @throws IllegalArgumentException if the menuItem or sizePrice are invalid
+    */
+    async addToSaleHistory(menuItem, sizeIndex, salePrice, ID) {
+        // get local date and time
+        const today = new Date();
+        const now = new Date();
+        const nowString = now.toLocaleTimeString().substring(0, 8);
+    
+        const gameday = today.getDay() === 0;
+    
+        try {
+            const client = await this.connection.pool.connect();
+
+            const result = await client.query("SELECT COUNT(*) FROM saleshistory");
+            const orderNum = result.rows[0].count;
+
+            const sqlStatement = `INSERT INTO saleshistory(orderid, serverid, orderitem, size, date, time, ordercost, gameday) 
+            VALUES (${orderNum}, ${ID}, '${menuItem}', '${sizeIndex}', '${today.toISOString().substring(0, 10)}', 
+            '${nowString}', '${salePrice}', '${gameday}')`;
+            
+            const res = await client.query(sqlStatement);
+            console.log("added order to sale history");
+            client.release();
+        } catch (e) {
+            console.error("Error accessing database. addToSaleHistory");
+            console.error(e);
+        }
+    }
+
+
+    /**
+    Checks if there are enough ingredients in stock to fulfill a sale order of the specified menu item and size.
+    @author Ethan Masters 
+    @param {String} menuItem the name of the menu item
+    @param {int} sizeIndex the size of the menu item
+    @return {boolean} true if there are enough ingredients in stock, false otherwise
+    @throws Exception if there is an error accessing the database
+    */
+    async checkSaleOrder(menuItem, sizeIndex) {
+        try {
+            const ingredients = await this.getElement("menuitem", "item", menuItem, "ingredients");
+            if (ingredients !== null) {
+                const ingredientList = ingredients.split(", ");
+        
+                for (const ingredient of ingredientList) {
+                    if (!(await this.inStock(ingredient, sizeIndex))) {
+                        console.log("Not All Ingredients in Stock")
+                        return false;
+                    }
+                }
+            }
+        } catch (error) {
+            console.log("Error accessing Database. checksaleorder");
+            throw error;
+        }
+        console.log("All Ingredients in Stock")
+        return true;
+    }
+
+
+    /**
+    Deducts the inventory for a specified menu item and size from the database.
+    @author Ethan Masters 
+    @param {String} menuItem the name of the menu item
+    @param {int} sizeIndex the index of the size in the sizing list of the menu item
+    @throws Exception if there is an error accessing the database
+    */
+    async deductInventory(menuItem, sizeIndex) {
+        try {
+            const conn = await this.connection.pool.connect();
+            console.log(menuItem);
+
+            const ingredients = await this.getElement("menuitem", "item", menuItem, "ingredients");
+        
+            if (ingredients !== null) {
+                const ingredientList = ingredients.split(", ");
+        
+                for (const ingredient of ingredientList) {
+                    const sizingSqlStatement = `SELECT sizing FROM inventory WHERE itemname = '${ingredient}'`;
+                    const totalSizeSqlStatement = `SELECT totalsize FROM inventory WHERE itemname = '${ingredient}'`;
+                    
+                    const sizingResult = await conn.query(sizingSqlStatement);
+                    const totalSizeResult = await conn.query(totalSizeSqlStatement);
+                    
+                    let size = '';
+                    let totalSize = '';
+                
+                    if (sizingResult.rowCount &amp;&amp; totalSizeResult.rowCount) {
+                        size = sizingResult.rows[0].sizing;
+                        totalSize = totalSizeResult.rows[0].totalsize;
+                        
+                        const sizingList = size.split(', ');
+                        const totalSizeDouble = parseFloat(totalSize);
+                        const sizingDouble = parseFloat(sizingList[sizeIndex]);
+                        const totalSizeNew = totalSizeDouble - sizingDouble;
+                    
+                        const updateSqlStatement = `UPDATE inventory SET totalsize = ${totalSizeNew} WHERE itemname = '${ingredient}'`;
+                        await conn.query(updateSqlStatement);
+                        console.log("deducted from inventory");
+                    }
+                }
+            }
+            conn.release();
+        } catch (err) {
+            console.error('Error accessing Database. DeductInventory', err.stack);
+        }
+    }
+
+    /**
+    Deducts the inventory for a specified addon item and size from the database.
+    @author Jack Hanna
+    @param {String} item the name of the addon item
+    @param {int} sizeIndex the index of the size in the sizing list of the menu item
+    @throws Exception if there is an error accessing the database
+    */
+    async deductItem(item, sizeIndex){
+        try {
+            const conn = await this.connection.pool.connect();
+            const sizingSqlStatement = `SELECT sizing FROM inventory WHERE itemname = '${item}'`;
+            const totalSizeSqlStatement = `SELECT totalsize FROM inventory WHERE itemname = '${item}'`;
+            
+            const sizingResult = await conn.query(sizingSqlStatement);
+            const totalSizeResult = await conn.query(totalSizeSqlStatement);
+            
+            let size = '';
+            let totalSize = '';
+        
+            if (sizingResult.rowCount &amp;&amp; totalSizeResult.rowCount) {
+                size = sizingResult.rows[0].sizing;
+                totalSize = totalSizeResult.rows[0].totalsize;
+                
+                const sizingList = size.split(', ');
+                const totalSizeDouble = parseFloat(totalSize);
+                const sizingDouble = parseFloat(sizingList[sizeIndex]);
+                const totalSizeNew = totalSizeDouble - sizingDouble;
+            
+                const updateSqlStatement = `UPDATE inventory SET totalsize = ${totalSizeNew} WHERE itemname = '${item}'`;
+                await conn.query(updateSqlStatement);
+                console.log("deducted from inventory");
+            }
+        } catch(err) {
+            console.error('Error accessing Database. deductItem', err.stack);
+        }
+    }
+
+
+    /**
+    Deducts inventory for a given menuItem and sizeIndex, adds the sale to the sale history, and increments the order number.
+    @author Ethan Masters
+    @param {String} menuItem the name of the menu item being sold
+    @param {int} sizeIndex the index of the size of the menu item being sold
+    @param {float} sizePrice the price of the size of the menu item being sold
+    @param {int} ID the ID of the customer who purchased the menu item
+    @throws IllegalArgumentException if the menuItem or sizeIndex are invalid
+    */
+    async addSale(menuItem, sizeIndex, salePrice, ID) {
+        if (!menuItem) {
+            console.log("No menu item provided");
+            return;
+        }
+        
+        // check if enough inventory to make drink
+        if (await this.checkSaleOrder(menuItem, sizeIndex)) {
+            // deduct from inventory
+            await this.deductInventory(menuItem, sizeIndex);
+            const salePriceString = salePrice.toFixed(2);
+
+            // add to sale history
+            await this.addToSaleHistory(menuItem, sizeIndex, salePriceString, ID);
+            console.log("Sale Completed");
+            return;
+        }
+        console.log("Sale Could Not be Completed");
+        return;
+    }
+
+
+    /**
+    This method increments the inventory of a specified item by its bulk size.
+    It retrieves the bulk size and total size of the item from the inventory database,
+    calculates the new total size by adding the bulk size, and updates the total size in the database.
+    @author Ethan Masters 
+    @param {String} itemName a String representing the name of the item to increment inventory for
+    @throws Exception if there is an error accessing the database
+    */
+    async incrementInventory(itemName) {
+        try {
+            const conn = await this.connection.pool.connect();
+
+            const bulkSizeQuery = `SELECT bulksize FROM inventory WHERE itemname = '${itemName}'`;
+            const totalSizeQuery = `SELECT totalsize FROM inventory WHERE itemname = '${itemName}'`;
+            let bulkSize = 0;
+            let totalSize = 0;
+                    
+            const bulkSizeResult = await conn.query(bulkSizeQuery);
+            const totalSizeResult = await conn.query(totalSizeQuery);
+
+            if (bulkSizeResult.rowCount &amp;&amp; totalSizeResult.rowCount) {
+                bulkSize = bulkSizeResult.rows[0].bulksize;
+                totalSize = totalSizeResult.rows[0].totalsize;
+            
+                const totalSizeDouble = parseFloat(totalSize);
+                const bulkSizeDouble = parseFloat(bulkSize);
+                const totalSizeNew = totalSizeDouble + bulkSizeDouble;
+            
+                const updateSqlStatement = `UPDATE inventory SET totalsize = ${totalSizeNew} WHERE itemname = '${itemName}'`;
+                await conn.query(updateSqlStatement);
+                console.log(`Inventory for item '${itemName}' has been incremented by ${bulkSize} units`);
+                conn.release();
+            }
+        } catch (error) {
+            console.error(`Increment Inventory: Error accessing database. ${error.message}`);
+        }
+    }
+
+
+    /**
+    This method adds suggestions to the orderItems list for items that have inventory levels below 3 times their bulk size.
+    It retrieves the item name, bulk size, and total size of each item from the inventory database,
+    and calculates if the total size is less than 3 times the bulk size.
+    If the condition is true, the item is added to the orderItems list.
+    @author Ethan Masters 
+    @throws Exception if there is an error accessing the database
+    */
+    async addOrderSuggestion() {
+        try {
+            const conn = await this.connection.pool.connect();
+        
+            // create an SQL statement
+            const sqlStatement = 'SELECT itemname, bulksize, totalsize FROM inventory';
+        
+            // send statement to DBMS
+            const result = await conn.query(sqlStatement);
+        
+            let ingredient = '';
+            let bulkSize = '';
+            let totalSize = '';
+            let itemsAdded = 0;
+        
+            // iterate over the result set
+            for (const row of result.rows) {
+                // get item name, bulk size, and total size
+                ingredient = row.itemname;
+                bulkSize = row.bulksize;
+                totalSize = row.totalsize;
+
+                //check if ingredient is already in orderItems
+                if (this.orderItems.indexOf(ingredient) !== -1) {
+                    console.log("Ingredient is already in orderItems");
+                    continue;
+                }
+
+                // convert to double
+                const totalSizeDouble = parseFloat(totalSize);
+                const bulkSizeDouble = parseFloat(bulkSize);
+        
+                // check if inventory is less than 3x bulk size
+                if (totalSizeDouble &lt; 3 * bulkSizeDouble) {
+                    this.orderItems.push(ingredient);
+                    itemsAdded++;
+                }
+            }
+            console.log("Added suggestions to orderItems: Items Added = ", itemsAdded);
+            conn.release();
+        } catch (err) {
+            console.error(`Error accessing Database. addOrderSuggestion: ${err}`);
+        }
+    }
+
+
+    /**
+    Adds an entry to the reorder history table with the specified manager ID, cost, and order items string.
+    @param managerID the ID of the manager who placed the order
+    @param {float} cost the cost of the order
+    @author Ethan Masters 
+    */
+    async addToOrderHistory(managerID, cost) {
+        try {
+            const conn = await this.connection.pool.connect();
+
+            const ingredients = this.orderItems;
+
+            const today = new Date().toISOString().slice(0, 10);
+            const now = new Date().toLocaleTimeString('en-US', {hour12: false});
+
+            const result = await conn.query("SELECT COUNT(*) FROM reorderhistory");
+            const reorderNum = result.rows[0].count;
+
+            const sqlStatement = `INSERT INTO reorderhistory(orderid, ingredients, ordercost, date, time, managerid)
+                                                VALUES (${reorderNum}, '${ingredients}', '${cost}', '${today}', '${now}', ${managerID})`;
+
+            await conn.query(sqlStatement);
+            console.log("Added Order to Order History");
+            conn.release();
+        } catch (err) {
+            console.error(`Error accessing Database. addToOrderHistory: ${err}`);
+        }
+    }
+
+
+    /**
+    This method submits an order by incrementing the inventory for each item in the orderItems list.
+    It calls the incrementInventory method for each item in the orderItems list to increment their inventory.
+    After the inventory has been incremented for all items in the order, it is expected to add the order to 
+    the order history database, but this functionality is not yet implemented.
+    @author Ethan Masters 
+    @param {int} managerID ID of the manager placing the order
+    */
+    async submitOrder(managerID) {
+        let totalCost = 0;
+        if (this.orderItems.length === 0) {
+            console.log("No ingredients provided");
+            return;
+        }
+        for (const t of this.orderItems) {
+            const ingredientCost = await this.getElement("inventory", "itemname", t, "bulkcost");
+            totalCost += parseFloat(ingredientCost);
+            this.incrementInventory(t);
+        }
+        this.addToOrderHistory(managerID, totalCost.toFixed(2));
+        console.log("Order Fully Submitted");
+    }
+
+
+    /**
+    This method checks if a specified ingredient is in the orderItems list.
+    It iterates through the orderItems list and checks if each item is equal to the specified ingredient.
+    If the specified ingredient is found in the orderItems list, the method returns true.
+    If the specified ingredient is not found in the orderItems list, the method returns false.
+    @author Ethan Masters 
+    @param {String} ingredient a String representing the name of the ingredient to check for in the orderItems list
+    @return {boolean} true if the ingredient is in the orderItems list, false otherwise
+    */
+    async isInOrderItems(ingredient) {
+        return this.orderItems.includes(ingredient);
+    }
+
+
+    /**
+    This method adds a specified ingredient to the orderItems list if it is not already in the list.
+    It calls the isInOrderItems method to check if the ingredient is already in the orderItems list.
+    If the ingredient is not already in the list, it is added to the list.
+    @author Ethan Masters 
+    @param {String} ingredient a String representing the name of the ingredient to add to the orderItems list
+    */
+    async addOrderItem(ingredient) {
+        //if (!this.isInOrderItems(ingredient)) {
+            this.orderItems.push(ingredient);
+        //}
+    }
+
+
+    /**
+    This method removes a specified ingredient from the orderItems list if it is in the list.
+    It calls the isInOrderItems method to check if the ingredient is in the orderItems list.
+    If the ingredient is in the list, it is removed from the list.
+    @author Ethan Masters 
+    @param {String} ingredient a String representing the name of the ingredient to remove from the orderItems list
+    */
+    async removeOrderItem(ingredient) {
+        if (this.isInOrderItems(ingredient)) {
+            const index = orderItems.indexOf(ingredient);
+            this.orderItems.splice(index, 1);
+        }
+    }
+
+
+    /**
+    This method changes the price of a specified menu item size in the database.
+    It creates an SQL statement that updates the price of a specified menu item size with a new price.
+    The method takes in three parameters: the name of the menu item, the name of the size/price field to update, and the new price value.
+    @author Ethan Masters 
+    @param {String} menuItem a String representing the name of the menu item to change the price of
+    @param {String} sizePrice a String representing the name of the size/price field to update in the database
+    @param {String} newPrice a String representing the new price to set for the specified menu item size
+    */
+    async changePriceMenu(menuItem, sizePrice, newPrice) {
+        if (parseFloat(newPrice) &lt;= 0) {
+            console.log("Cannot set price to be $0 or less");
+            return;
+        }
+        try {
+            const conn = await this.connection.pool.connect();
+            const sqlStatement = `UPDATE menuitem SET ${sizePrice} = ${newPrice} WHERE item = '${menuItem}'`;
+            await conn.query(sqlStatement);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. changePriceMenu");
+        }
+    }
+
+
+    /**
+    This method changes the bulk price of a specified ingredient in the database.
+    It creates an SQL statement that updates the bulk price of the specified ingredient with a new price.
+    The method takes in two parameters: the name of the ingredient to change the price of, and the new price value.
+    @author Ethan Masters 
+    @param {String} ingredient a String representing the name of the ingredient to change the bulk price of
+    @param {String} newPrice a String representing the new bulk price to set for the specified ingredient
+    */
+    async changePriceBulk(ingredient, newPrice) {
+        if (parseFloat(newPrice) &lt;= 0) {
+            console.log("Cannot set price to be $0 or less");
+            return;
+        }
+        try {
+            const conn = await this.connection.pool.connect();
+            const sqlStatement = `UPDATE inventory SET bulkcost = ${newPrice} WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. changePriceBulk");
+        }
+    }
+
+
+    /**
+    Updates the information for an inventory item, including the bulk cost, total size, bulk size, bulk units, and sizing.
+    @param {String} ingredient the name of the inventory item to be updated
+    @param {String} newAmount the new total size for the inventory item
+    @param {String} newBulkSize the new bulk size for the inventory item
+    @param {String} newBulkUnits the new units for the bulk size of the inventory item
+    @param {String} newPrice the new bulk cost for the inventory item
+    @param {String} newSizing the new sizing for the inventory item
+    @author Ethan Masters 
+    */
+    async updateInventoryInfo(ingredient, newAmount, newBulkSize, newBulkUnits, newPrice, newSizing) {
+        if (parseFloat(newPrice) &lt;= 0) {
+            console.log("Cannot set price to be $0 or less");
+            return;
+        }
+        if (parseFloat(newAmount) &lt; 0) {
+            console.log("Cannot set amount to be less than 0");
+            return;
+        }
+        if (parseFloat(newBulkSize) &lt;= 0) {
+            console.log("Cannot set amount to be less than or equal to 0");
+            return;
+        }
+        try {
+            const conn = await this.connection.pool.connect();
+            let sqlStatement = `UPDATE inventory SET bulkcost = ${newPrice} WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            sqlStatement = `UPDATE inventory SET totalsize = ${newAmount} WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            sqlStatement = `UPDATE inventory SET bulksize = ${newBulkSize} WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            sqlStatement = `UPDATE inventory SET bulkunits = '${newBulkUnits}' WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            sqlStatement = `UPDATE inventory SET sizing = '${newSizing}' WHERE itemname = '${ingredient}'`;
+            await conn.query(sqlStatement);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. updateInventoryInfo");
+        }
+    }
+
+
+    /**
+    This method adds a new ingredient to the inventory table
+    @param {String} ingredient the name of the ingredient to be added to the inventory
+    @throws Exception if there is an error accessing the database
+    @author Ethan Masters 
+    */
+    async addToInventory(ingredient) {
+        try {
+            const conn = await this.connection.pool.connect();
+            let sqlStatement = `INSERT INTO inventory(itemname, totalsize, bulksize, bulkunits, bulkcost, sizing, category) VALUES ('${ingredient}', 0, 0, 'oz', '0', '0, 0, 0', 'noCatagory')`;
+            await conn.query(sqlStatement);
+            console.log(`Added ${ingredient} to inventory`);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. addToInventory");
+        }
+    }
+
+
+    /**
+    This function checks if the ingredients of a menu item exist in the inventory.
+    If an ingredient does not exist in the inventory, it is added to the inventory.
+    @param {String} ingredients A string of comma-separated ingredients
+    @author Ethan Masters 
+    */
+    async checkInventory(ingredients) {
+        let isInInventory = false;
+        const inventoryItems = await (this.getColumn("inventory", "itemname"));
+        const ingredientList = ingredients.split(", ");
+
+        for (const ingredient of ingredientList) {
+            for (const inventoryItem of inventoryItems) {
+                if (inventoryItem === ingredient) {
+                    isInInventory = true;
+                    break;
+                }
+            }
+            if (!isInInventory) {
+                console.log(`${ingredient} is not in inventory`);
+                await this.addToInventory(ingredient);
+            }
+        }
+    }
+
+
+    /**
+    Adds a new menu item to the database.
+    Checks if the item already exists and if it does, it will print an error message and return.
+    It also checks if the ingredients for the new item are available in inventory.
+    If the item does not already exist and the ingredients are available, a new row is created in the menuitem table of the database.
+    @param {String} item the name of the menu item to be added
+    @param {String} sprice the price of the small size of the menu item
+    @param {String} mprice the price of the medium size of the menu item
+    @param {String} lprice the price of the large size of the menu item
+    @param {String} ingredients a string of the ingredients for the menu item separated by commas
+    @param {String} category the category of the menu item
+    @author Ethan Masters 
+    */
+    async addMenuItem(item , sprice, mprice, lprice, ingredients, category) {
+        //check if menu item exists
+        let menuItems = await this.getColumn("menuitem", "item");
+        for (let i = 0; i &lt; menuItems.length; i++) {
+            if (menuItems[i] === item) {
+                console.log("Item already exists");
+                return;
+            }
+        }
+        this.checkInventory(ingredients);
+        try{
+            const conn = await this.connection.pool.connect();      
+            let sqlStatement = `INSERT INTO menuitem(item, sprice, mprice, lprice, ingredients, category) VALUES ('${item}', '${sprice}', '${mprice}', '${lprice}', '${ingredients}', '${category}')`;
+            await conn.query(sqlStatement);
+            console.log("Succesfully added new drink");
+            conn.release();
+        } catch (e) {
+            console.log(e)
+            console.log("Error accessing Database.addmenuItem");
+        }
+    }
+
+
+    /**
+    Removes an item from the inventory table in the database. Checks that the item
+    is in the inventory before attempting to remove.
+    @param {String} item the name of the item to be removed from the inventory
+    @throws SQLException if there is an error accessing the database
+    @author Ethan Masters 
+    */
+    async removeInventoryItem(item) {
+        let exists = false;
+        const inventoryItems = await this.getColumn("inventory", "itemname");
+        for (const inventoryItem of inventoryItems) {
+            if (inventoryItem === item) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            console.log("Inventory item does not exist");
+            return;
+        }
+        try {
+            const conn = await this.connection.pool.connect(); 
+            const sqlStatement = `DELETE FROM inventory WHERE itemname = '${item}'`;
+            const result = await conn.query(sqlStatement);
+            console.log(`Removed ${item} from inventory`);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. removeInventoryItem");
+        }
+    }
+
+
+    /**
+    Removes an item from the menu table in the database. Checks that the item
+    is in the menu before attempting to remove.
+    @param {String} item the name of the item to be removed from the inventory
+    @throws SQLException if there is an error accessing the database
+    @author Ethan Masters 
+    */
+    async removeMenuItem(item) {
+        let exists = false;
+        const menuItems = await this.getColumn("menuitem", "item");
+        for (const menuItem of menuItems) {
+            if (menuItem === item) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            console.log("Menu item does not exist");
+            return;
+        }
+        try {
+            const conn = await this.connection.pool.connect(); 
+            const sqlStatement = `DELETE FROM menuitem WHERE item = '${item}'`;
+            const result = await conn.query(sqlStatement);
+            console.log("Deleted menu item");
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. removeMenuItem");
+        }
+    }
+
+
+    /**
+    Adds a new employee to the employeelist table with the given ID, name, and position.
+    Checks to make sure the new ID isn't already taken.
+    @param {int} ID the ID of the new employee to be added.
+    @param {String} name the name of the new employee to be added.
+    @param position the position of the new employee to be added.
+    @throws SQLException if there is an error accessing the database.
+    @author Ethan Masters 
+    */
+    async addEmployee(ID, name, position) {
+        // Check if ID has been taken
+        let takenIDs = await this.getColumn("employeelist", "id");
+        for (let i = 0; i &lt; takenIDs.length; i++) {
+            if (parseInt(takenIDs[i]) === ID) {
+                console.log("ID already taken");
+                return;
+            }
+        }
+        try {
+            const conn = await this.connection.pool.connect(); 
+            let sqlStatement = `INSERT INTO employeelist(id, ename, position) VALUES (${ID}, '${name}', '${position}')`;
+            const result = await conn.query(sqlStatement);
+            console.log(`Added employee ${name} to employeelist`);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. addEmployee");
+        }
+    }
+
+
+    /**
+    Removes an employee to the employeelist table with the given ID.
+    Checks to make sure the employee ID exists
+    @param {int} ID the ID of the new employee to be added.
+    @throws SQLException if there is an error accessing the database.
+    @author Ethan Masters 
+    */
+    async removeEmployee(ID) {
+        // Check if ID exists
+        let exists = false;
+        const takenIDs = await this.getColumn("employeelist", "id");
+        if (takenIDs.includes(parseInt(ID))) { // this was broken originally
+            exists = true;
+        }
+        if (!exists) {
+            console.log("Employee ID does not exist");
+                return;
+        }
+
+        try {
+            const conn = await this.connection.pool.connect(); 
+            const sqlStatement = `DELETE FROM employeelist WHERE id = ${ID}`;
+            const result = await conn.query(sqlStatement);
+            console.log(`Removed employee ${ID}`);
+            conn.release();
+        } catch (e) {
+            throw new Error(`Error accessing Database. removeEmployee: ${e}`);
+        }
+    }
+
+
+    /**
+    Generates a report of inventory items that are running low on stock and need to be restocked.
+    Adds the name of each item that needs to be restocked to the ArrayList restockItems.
+    This report is generated by querying the "inventory" table in the database and comparing the total size of each
+    item to 3 times the bulk size of the item. If the total size is less than 3 times the bulk size, the item is added
+    to the restockItems ArrayList.
+    @throws SQLException if there is an error accessing the database
+    @returns {String[]} restockItems - array of items that need to be restocked
+    @author Ethan Masters 
+    */
+    async restockReport() {
+        const restockItems = [];
+        try {
+            const conn = await this.connection.pool.connect(); 
+            const sqlStatement = "SELECT itemname, bulksize, totalsize FROM inventory";
+            const result = await conn.query(sqlStatement);
+            let ingredient = "";
+            let bulkSize = "";
+            let totalSize = "";
+
+            for (const row of result.rows) {
+                // get item name, bulk size, and total size
+                ingredient = row.itemname;
+                bulkSize = row.bulksize;
+                totalSize = row.totalsize;
+
+                // convert to double
+                const totalSizeDouble = parseFloat(totalSize);
+                const bulkSizeDouble = parseFloat(bulkSize);
+
+                // check if inventory is less than 3x bulk size
+                if (totalSizeDouble &lt; 3 * bulkSizeDouble) {
+                    restockItems.push(ingredient);
+                }
+            }
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. restockReport");
+        }
+        return restockItems;
+    }
+
+
+    /**
+    Retrieves a list of items belonging to a specific category from a table in the database.
+    @param {String} table the table the items are retrieved from
+    @param {String} colName the column of the items to be collected
+    @param {String} category the category of the items to be retrieved
+    @return {String[]} an ArrayList of Strings containing the names of the items belonging to the specified category
+    @author Jack Hanna
+    */
+    async getItemsFromCategory(table, colName, category){
+        const columnData = [];
+        try {
+            const conn = await this.connection.pool.connect();
+            const sqlStatement = `SELECT ${colName} FROM ${table} WHERE category = '${category}'`;
+            const result = await conn.query(sqlStatement);
+
+            const columnData = result.rows.map(row => row[colName]);
+            conn.release();
+            return columnData;
+        } catch (e) {
+            console.log('Error accessing Database. getItemsFromCategory');
+            throw new Error(e);
+        }
+    }
+
+
+    /**
+    Generates a sales report for a specified time frame.
+    The function queries the sales history table for all order items sold between the specified times,
+    and generates a count of the number of occurrences of each item. The results are printed to the console.
+    If there is an error accessing the database, an error message is printed to the console.
+    @param {String} time1 a String representing the starting time of the report in the format "yyyy-MM-dd"
+    @param {String} time2 a String representing the ending time of the report in the format "yyyy-MM-dd"
+    @throws SQLException if there is an error accessing the database
+    @author Ethan Masters 
+    */
+    async salesReport(time1, time2) {
+        const sales = [];
+        const salesCount = new Map();
+
+        try {
+            const conn = await this.connection.pool.connect();
+            const sqlStatement = `SELECT orderitem FROM saleshistory WHERE date BETWEEN '${time1}' AND '${time2}'`;
+            const result = await conn.query(sqlStatement);
+
+            for (const row of result.rows) {
+                console.log(row);
+                sales.push(row.orderitem);
+            }
+            console.log(sales);
+            for (const sale of sales) {
+                if (salesCount.has(sale)) {
+                    const count = salesCount.get(sale);
+                    salesCount.set(sale, count + 1);
+                } else {
+                    salesCount.set(sale, 1);
+                }
+            }
+
+            for (const [item, count] of salesCount.entries()) {
+                console.log(`${item} appears ${count} times.`);
+            }
+            conn.release();
+        } catch (e) {
+            console.log(e);
+            console.log('Error accessing Database. salesReport');
+        }
+    }
+
+
+    /**
+    Calculates the total sales since the last z report and returns it as a double.
+    The function accesses the database to retrieve the date and time of the last z report,
+    and then calculates the total sales from the sales history table since that date and time.
+    If there are no sales since the last z report, the function returns 0.
+    @return {float} a double value representing the total sales since the last z report.
+    @throws RuntimeException if there is an error accessing the database.
+    @author Ethan Masters 
+    */
+    async xReport() {
+        let total = 0;
+        try {
+            let date = "";
+            let time = "";
+
+            const conn = await this.connection.pool.connect();
+            const sqlStatement = "SELECT date, time FROM zreports ORDER BY reportid DESC LIMIT 1";
+            const result = await conn.query(sqlStatement);
+
+            for (const row of result.rows) {
+                // get date and time of last z report
+                date = row.date;
+                time = row.time;
+            }
+
+            // get total sales since last z report
+            const sqlStatement2 = "SELECT ordercost FROM saleshistory WHERE date >= '" + date + "' AND time >= CASE WHEN date = '" + date + "' THEN '" + time + "' ELSE time END;";
+            const result2 = await conn.query(sqlStatement2);
+
+            for (const row of result2.rows) {
+                const ordercost = row.ordercost;
+                const orderCostDouble = parseFloat(ordercost);
+                total += orderCostDouble;
+            }
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. xReport");
+            console.log(e);
+        }
+        return total.toFixed(2);
+    }
+
+
+    /**
+    This method generates a new z report with the total sales since the last z report and inserts it into the zreports table in the database.
+    It first calls the xReport() method to calculate the total sales since the last z report.
+    It then retrieves the current local date and time and creates a new row in the zreports table with these values along with the total sales.
+    If there is an error accessing the database, an error message is printed to the console.
+    @return {float} the total sales since the last z report as a double
+    @author Ethan Masters 
+    */
+    async zReport() {
+        let total = await this.xReport();
+        let now = new Date();
+        let date = now.toISOString().slice(0, 10);
+        let time = now.toTimeString().slice(0, 8);
+        try {
+            const conn = await this.connection.pool.connect();
+
+            //get reportnum
+            let sqlStatement = "SELECT COUNT(*) FROM zreports";
+            const result = await conn.query(sqlStatement);
+            let reportNum = 0;
+            
+            for (const row of result.rows) {
+                reportNum = row.count;
+            }
+
+            sqlStatement = `INSERT INTO zreports(reportid, date, time, total) VALUES (${reportNum}, '${date}', '${time}', ${total})`;
+            const result2 = await conn.query(sqlStatement);
+            conn.release();
+        } catch (e) {
+            console.log("Error accessing Database. zReport");
+            console.log(e);
+        }
+        return total;
+    }
+
+
+    /**
+    This method generates a report of excess inventory items based on the amount used in the
+    sales history for a given date and time. It returns an ArrayList of Strings containing the names
+    of the excess inventory items. The method takes in two parameters, a date and a time in the format
+    of a String. It throws a ParseException if the given date or time String is in an incorrect format.
+    The method first creates a HashMap to keep track of the amount used for each ingredient in
+    the sales history. It then creates an SQL statement to retrieve all sales history records
+    for the given date and time. It processes each record to extract the order item and size,
+    and then uses this information to retrieve the ingredients and their corresponding sizing
+    information from the menu item and inventory tables. It updates the amount used HashMap with
+    the amount used for each ingredient in each order.
+    The method then retrieves the entire list of ingredients from the inventory table and checks
+    each one to see if it is excess based on the amount used and the current total inventory
+    amount. If the amount used is less than 10% of the starting amount (current inventory amount
+    plus amount used), the ingredient is considered excess and added to the ArrayList of excess
+    inventory items. If the ingredient is not in the amount used HashMap, it is also considered
+    excess and added to the ArrayList.
+    @param {String} date a String representing the date for the sales history records to be retrieved in the format "yyyy-MM-dd"
+    @param {String} time a String representing the time for the sales history records to be retrieved in the format "HH:mm:ss"
+    @return {ArrayList} an ArrayList of Strings representing the excess inventory items
+    @throws ParseException if the given date or time String is in an incorrect format
+    @author Ethan Masters 
+    */
+    async excessReport(date, time) {
+        const excessInventory = [];
+        const amountUsedMap = new Map();
+
+        try {
+            const conn = await this.connection.pool.connect();
+
+            const sqlStatement = `SELECT orderitem, size FROM saleshistory WHERE date >= '${date}' AND time >= CASE WHEN date = '${date}' THEN '${time}' ELSE time END`;
+            const result = await conn.query(sqlStatement);
+
+            let saleItem = "";
+            let sizeIndex = 0;
+
+            for (const row of result.rows) {
+                saleItem = row.orderitem;
+                sizeIndex = row.size;
+
+                const sqlStatement2 = `SELECT ingredients FROM menuitem WHERE item = '${saleItem}'`;
+                const result2 = await conn.query(sqlStatement2);
+
+                let ingredients = "";
+
+                for (const row2 of result2.rows) {
+                    ingredients = row2.ingredients;
+                    const ingredientList = ingredients.split(",");
+
+                    for (const ingredient of ingredientList) {
+                        const sqlStatement3 = `SELECT sizing FROM inventory WHERE itemname = '${ingredient}'`;
+                        const result3 = await conn.query(sqlStatement3);
+
+                        let size = "";
+                        let sizingDouble = 0;
+
+                        for (const row3 of result3.rows) {
+                            size = row3.sizing;
+                            const sizingList = size.split(", ");
+                            sizingDouble = sizingList[sizeIndex];
+                        }
+                        //update map
+                        if (amountUsedMap.has(ingredient)) {
+                            let amountUsed = amountUsedMap.get(ingredient);
+                            amountUsedMap.set(ingredient, amountUsed + sizingDouble);
+                        } else {
+                            amountUsedMap.set(ingredient, sizingDouble);
+                        }
+                    }
+                }
+            }
+            const sqlStatement4 = `SELECT itemname FROM inventory`;
+            const result4 = await conn.query(sqlStatement4);
+            const allIngredients = [];
+            let ing = "";
+
+            for (const row4 of result4.rows) {
+                ing = row4.itemname;
+                allIngredients.push(ing);
+            }
+
+            for (const curr of allIngredients) {
+                if (amountUsedMap.has(curr)) {
+                    const sqlStatement5 = `SELECT totalsize FROM inventory WHERE itemname = '${curr}'`;
+                    const result5 = await conn.query(sqlStatement5);
+                    let currAmount = 0;
+
+                    for (const row5 of result5.rows) {
+                        currAmount = row5.totalSize;
+                    }
+
+                    let usedAmount = amountUsedMap.get(curr);
+
+                    let startAmount = currAmount + usedAmount;
+
+                    if (usedAmount &lt; (0.1 * startAmount)) {
+                        excessInventory.push(curr);
+                    }
+                } else {
+                    excessInventory.push(curr);
+                }
+            }
+            conn.release();
+        } catch(e) {
+            console.log("Error accessing Database. excessReport");
+            console.log(e);
+        }
+        return excessInventory;
+    } 
+}
+
+module.exports = dbFunctions;</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

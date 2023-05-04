@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/scripts/Manager.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/scripts/Manager.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* Script for manager page interactive elements
+   Developed by
+*/
+
+// make functions for each button
+// employees -------------------------------
+// refresh (call after add remove and update)
+// add
+// remove
+// modify
+
+
+// menu items ------------------------------
+// refresh (call after add remove and update)
+// add
+// remove
+// modify
+
+// inventory -------------------------------
+// refresh (call after add remove and update)
+// add
+// remove
+// update
+
+// histories -------------------------------
+// view sales
+// view orders
+// view sales chart
+// view sales by category/ day
+
+// reports ---------------------------------
+// refresh (call after z-report)
+// x -report
+// z -report
+// sales charts
+// sales by cat/ day
+
+// population of tables --------------------
+// employee table
+// menu items table
+// inventory table
+// sales history
+// order history
+// z reports
+/**
+ * Sets up click event listeners for each option in a menu, showing the corresponding container and hiding all others.
+ */
+$(document).ready(function() {
+   $("#option1").click(function() {
+     $("#container1").show();
+     $("#container2").hide();
+     $("#container3").hide();
+     $("#container4").hide();
+     $("#container5").hide();
+   });
+   
+   $("#option2").click(function() {
+     $("#container1").hide();
+     $("#container2").show();
+     $("#container3").hide();
+     $("#container4").hide();
+     $("#container5").hide();
+   });
+
+   $("#option3").click(function() {
+     $("#container1").hide();
+     $("#container2").hide();
+     $("#container3").show();
+     $("#container4").hide();
+     $("#container5").hide();
+   });
+   
+   $("#option4").click(function() {
+     $("#container1").hide();
+     $("#container2").hide();
+     $("#container3").hide();
+     $("#container4").show();
+     $("#container5").hide();
+   });
+
+   $("#option5").click(function() {
+     $("#container1").hide();
+     $("#container2").hide();
+     $("#container3").hide();
+     $("#container4").hide();
+     $("#container5").show();
+   });
+ });
+ /**
+ * Function to change the current page to the provided page URL.
+ * @param {string} page - The URL of the page to navigate to.
+ * @returns {void}
+ */
+ function changePage(page) {
+   window.location.href = page;
+ }
+ /**
+
+Displays the sales history by hiding the past orders and showing the past sales.
+Hides the chart container with ID "chart-container1".
+*/
+ function viewSalesHistory() {
+   $("#pastOrders").hide();
+   $("#pastSales").show();
+   $('#chart-container1').hide();
+ }
+ /**
+
+Displays the order history by hiding the past sales and showing the past orders.
+Hides the chart container with ID "chart-container1".
+*/
+ function viewOrderHistory() {
+   $("#pastOrders").show();
+   $("#pastSales").hide();
+   $('#chart-container1').hide();
+ }
+ /**
+ * Displays the charts by hiding the Z report table and showing the chart container with ID "chart-container2".
+ * Calls the function "drawChart" after Google charts is loaded.
+ */
+function viewCharts2() {
+   $('#zReportTable').hide();
+   $('#chart-container2').show();
+   google.charts.setOnLoadCallback(drawChart);
+}
+/**
+ * Displays the Z report table by hiding the chart container with ID "chart-container2".
+ */
+function viewZReports() {
+   $('#zReportTable').show();
+   $('#chart-container2').hide();
+}
+/**
+ * Displays the charts by hiding the past orders and the past sales and showing the chart container with ID "chart-container1".
+ * Calls the function "drawChart" after Google charts is loaded.
+ */
+function viewCharts1() {
+   $("#pastOrders").hide();
+   $("#pastSales").hide();
+   $('#chart-container1').show();
+   google.charts.setOnLoadCallback(drawChart);
+}
+
+// add employee
+/**
+ * Adds an employee by sending a POST request to the "/addEmployee" URL with the input data provided.
+ * The input data should contain the name, ID, and position of the employee.
+ * If an error occurs, the message "error" will be logged to the console.
+ * Triggered when the element with ID "addEmployeeFunction" is clicked.
+ */
+
+$('#addEmployeeFunction').click(function(event) {
+   var inputData = {
+      name: $('#addEmployeeModal').find('#employeeName').val(),
+      id: $('#addEmployeeModal').find('#employeeID').val(),
+      pos: $('#addEmployeeModal').find('#employeePosition').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/addEmployee',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// remove employee
+/**
+ * Removes an employee by sending a POST request to the "/removeEmployee" URL with the input data provided.
+ * The input data should contain the ID of the employee.
+ * If an error occurs, the message "error" will be logged to the console.
+ * Triggered when the element with ID "removeEmployeeFunction" is clicked.
+ */
+$('#removeEmployeeFunction').click(function(event) {
+   var inputData = {
+      id: $('#removeEmployeeModal').find('#employeeID').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/removeEmployee',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// add menu item
+/**
+ * Adds a menu item by sending a POST request to the "/addMenuItem" URL with the input data provided.
+ * The input data should contain the name, small price, medium price, large price, ingredients, and category of the menu item.
+ * If an error occurs, the message "error" will be logged to the console.
+ * Triggered when the element with ID "addMenuItemFunction" is clicked.
+ */
+$('#addMenuItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#addMenuItemModal').find('#menuItemName').val(),
+      sprice: $('#addMenuItemModal').find('#menuItemSPrice').val(),
+      mprice: $('#addMenuItemModal').find('#menuItemMPrice').val(),
+      lrpice: $('#addMenuItemModal').find('#menuItemLPrice').val(),
+      ingre: $('#addMenuItemModal').find('#menuItemIngredients').val(),
+      cat: $('#addMenuItemModal').find('#menuItemCategory').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/addMenuItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// remove menu item
+/**
+ * Removes a menu item by sending a POST request to the "/removeMenuItem" URL with the input data provided.
+ * The input data should contain the name of the menu item to be removed.
+ * If an error occurs, the message "error" will be logged to the console.
+ * Triggered when the element with ID "removeMenuItemFunction" is clicked.
+ */
+$('#removeMenuItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#removeMenuItemModal').find('#menuItemName').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/removeMenuItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// update menu item
+/**
+ * Makes an AJAX request to update the price and/or size of an existing menu item.
+ */
+$('#updateMenuItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#updateMenuItemModal').find('#menuItemName').val(),
+      size: $('#updateMenuItemModal').find('#menuItemSize').val(),
+      price: $('#updateMenuItemModal').find('#menuItemPrice').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/updateMenuItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// add inventory item
+/**
+ * Handles the event when the "add inventory item" button is clicked. Sends a POST request to the server to add the
+ * specified inventory item to the inventory database.
+ */
+
+$('#addInventoryItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#addInventoryItemModal').find('#inventoryItemName').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/addInventoryItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// remove inventory item
+/**
+ * Handles removing an inventory item from the system.
+ * @function
+ */
+
+$('#removeInventoryItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#removeInventoryItemModal').find('#inventoryItemName').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/removeInventoryItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// update inventory item
+/**
+ * Sends an AJAX POST request to the server to update an inventory item with the specified information.
+ * @function
+ * @name #updateInventoryItemFunction
+ * @param {Object} event - The event object.
+ */
+$('#updateInventoryItemFunction').click(function(event) {
+   var inputData = {
+      name: $('#updateInventoryItemModal').find('#inventoryItemName').val(),
+      stock: $('#updateInventoryItemModal').find('#inventoryItemAmount').val(),
+      bulk: $('#updateInventoryItemModal').find('#inventoryItemBulkAmount').val(),
+      measure: $('#updateInventoryItemModal').find('#inventoryItemBulkMeasure').val(),
+      price: $('#updateInventoryItemModal').find('#inventoryItemPrice').val(),
+      sizing: $('#updateInventoryItemModal').find('#inventoryItemSizing').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/updateInventoryItem',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// update inventory item price
+/**
+ * Handles the click event for updating the price of an inventory item.
+ * @function
+ * @name #updateInventoryItemPriceFunction.click
+ * @param {Object} event - The click event object.
+ */
+$('#updateInventoryItemPriceFunction').click(function(event) {
+   var inputData = {
+      name: $('#updateInventoryItemPriceModal').find('#inventoryItemName').val(),
+      price: $('#updateInventoryItemPriceModal').find('#inventoryItemPrice').val()
+   };
+
+   $.ajax({
+      type: 'POST',
+      url: '/updateInventoryItemPrice',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// reorder
+$('#reorderInventoryFunction').click(function(event) {
+   var inputData = {
+      items: []
+   };
+   $('#reorderInventoryModal').find('.form-check-input:checked').each(function() {
+      inputData.items.push($(this).attr('id').replace(/-/g, ' '));
+   });
+   $.ajax({
+      type: 'POST',
+      url: '/reorderInventoryItems',
+      data: inputData,
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// x report
+$('#xReportFunction').click(function(event) {
+   $.ajax({
+      type: 'GET',
+      url: '/xReport',
+      success: function(data) {
+         // Access specific properties of the object using dot notation or square bracket notation
+         $('#xReportModal').find('#xReportData').text('$' + data.data);
+      },
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// z report
+$('#zReportFunction').click(function(event) {
+   // output data into the xReportModal at the input slot
+   $.ajax({
+      type: 'GET',
+      url: '/zReport',
+      success: function(data) {
+         // Access specific properties of the object using dot notation or square bracket notation
+         $('#zReportModal').find('#zReportData').text('$' + data.data);
+      },
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// restock report
+$('#restockReportFunction').click(function(event) {
+   // output data into the restockReportModal at the input slot
+   $.ajax({
+      type: 'GET',
+      url: '/restockReport',
+      success: function(data) {
+         const formattedList = data.data.join('&lt;br>');
+         $('#restockReportModal').find('#restockReportData').html(formattedList);
+       },
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// excess report
+$('#excessReportFunction').click(function(event) {
+   // output data into the excessReportModal at the input slot
+   var inputData = {
+      date: $('#excessReportModal').find('#date').val(),
+      time: $('#excessReportModal').find('#time').val()
+   };
+   $.ajax({
+      type: 'GET',
+      data: inputData,
+      url: '/excessReport',
+      success: function(data) {
+         const formattedList = data.data.join('&lt;br>');
+         $('excessReportModal').modal('hide');
+         $('#excessReportReturnModal').find('#excessReportData').html(formattedList);
+         $('#excessReportReturnModal').modal('show');
+       },
+      error: function(error) {
+         console.log('error');
+      }
+   })
+});
+// populate chart-container1 and 2
+google.charts.load('current', { 'packages': ['corechart'] });
+
+// Define a function to draw the chart
+function drawChart() {
+   $.ajax({
+      type: 'GET',
+      url: '/getSoldDrinks',
+      dataType: 'json',
+      success: function(response) {
+         const drinkData = response.data;
+    
+         // Create data table for pie chart
+         const drinkCounts = {};
+
+         drinkData.forEach((drink) => {
+            const drinkName = drink;
+            drinkCounts[drinkName] = drinkCounts[drinkName] ? drinkCounts[drinkName] + 1 : 1;
+         });
+         
+         const chartData = [['Drink', 'Quantity']];
+
+         Object.entries(drinkCounts).forEach(([drinkName, quantity]) => {
+            chartData.push([drinkName, quantity]);
+         });
+    
+         // Set chart options
+         const options = {
+            title: 'Drink Quantities',
+            is3D: false,
+            chartArea: { width: '90%', height: '90%' },
+         };
+    
+         // Instantiate and draw chart
+         const dataTable = google.visualization.arrayToDataTable(chartData);
+         const chart = new google.visualization.PieChart(document.getElementById('chart-container1'));
+         chart.draw(dataTable, options);
+         const chart1 = new google.visualization.PieChart(document.getElementById('chart-container2'));
+         chart1.draw(dataTable, options);
+      },
+      error: function() {
+         console.log('Error fetching drink data.');
+      }
+   });
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

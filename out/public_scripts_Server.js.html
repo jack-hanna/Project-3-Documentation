@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/scripts/Server.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/scripts/Server.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* Script for server page interactive elements
+   Developed by
+*/
+var itemName = "";
+var itemSize = -1;
+var addons = [];
+var hasDrink = false;
+var total = 0.0;
+
+/**
+Returns the user to the home page
+@author Julian Silvestrini
+*/
+function homePage() {
+   window.location.href = "/";
+}
+
+$(document).ready(function() {
+   $("#option1").click(function() {
+      $("#container1").show();
+      $("#container2").hide();
+      $("#container3").hide();
+      $("#container4").hide();
+      $("#container5").hide();
+   });
+        
+   $("#option2").click(function() {
+      $("#container1").hide();
+      $("#container2").show();
+      $("#container3").hide();
+      $("#container4").hide();
+      $("#container5").hide();
+   });
+
+   $("#option3").click(function() {
+      $("#container1").hide();
+      $("#container2").hide();
+      $("#container3").show();
+      $("#container4").hide();
+      $("#container5").hide();
+   });
+        
+   $("#option4").click(function() {
+      $("#container1").hide();
+      $("#container2").hide();
+      $("#container3").hide();
+      $("#container4").show();
+      $("#container5").hide();
+   });
+
+   $("#option5").click(function() {
+      $("#container1").hide();
+      $("#container2").hide();
+      $("#container3").hide();
+      $("#container4").hide();
+      $("#container5").show();
+   });
+});
+
+/**
+Creates a page element for a selected item in the cart
+@author Julian Silvestrini
+@param {String} size The size of the drink being ordered
+*/
+function placeInCart(size) {
+   // Get the selected size from the buttons
+   // get the cart-items div
+   var cartItemsDiv = document.getElementById("cartItems");
+
+   // create a new div to hold each item and its remove button
+   var itemDiv = document.createElement("div");
+   itemDiv.className = "cart-item";
+
+   // create a new p element to hold the item name
+   var itemNameP = document.createElement("p");
+   itemNameP.textContent = size + " " + itemName;
+
+   // create a new button to remove the item
+   var removeButton = document.createElement("button");
+   removeButton.type = "button";
+   removeButton.className = "btn btn-danger btn-sm";
+   removeButton.textContent = "Remove";
+   removeButton.addEventListener("click", function () {
+      // remove the item div from the cart-items div
+      cartItemsDiv.removeChild(itemDiv);
+      hasDrink = false;
+      addons = [];
+   });
+
+   // add the item name and remove button to the item div
+   itemDiv.appendChild(itemNameP);
+   itemDiv.appendChild(removeButton);
+
+   // add the item div to the cart-items div
+   cartItemsDiv.appendChild(itemDiv);
+
+   // Close the modal
+   $("#modalSizeSelection").modal("hide");
+}
+
+$('#modalSizeSelection').on('show.bs.modal', function (event) {
+   var button = $(event.relatedTarget); // Button that triggered the modal
+   if(!hasDrink){
+      itemName = button.data('itemname').replace(/-/g, ' '); // Extract item name from data attribute
+      // Do something with the item name, like display it in the modal or pass it to a function
+      document.getElementById("menuItemName").innerHTML = itemName;
+   }
+});
+
+/**
+Sends a request to order the item and addons, then clears all selections
+@author Jack Hanna
+*/
+function placeOrder() {
+   var cartItemsDiv = document.getElementById('cartItems');
+   var cartItems = cartItemsDiv.querySelectorAll('div');
+
+   while (cartItemsDiv.hasChildNodes()) {
+      cartItemsDiv.removeChild(cartItems[0]);
+      cartItems = cartItemsDiv.querySelectorAll('div');
+   }
+
+   inputData = {
+      item: itemName,
+      size: itemSize,
+      addons: addons,
+      price: total
+   }
+
+   $.ajax({
+      type: "POST",
+      url: "/placeOrder",
+      data: inputData,
+      error: function(error){
+         console.log(error);
+      }
+   })
+
+   itemName = "";
+   itemSize = -1;
+   addons = [];
+   hasDrink = false;
+   total = 0.0;
+   document.getElementById("testText").innerHTML = "Order Placed";
+   document.getElementById("testText2").innerHTML = "Addons ";
+   document.getElementById("totalCheckoutCost").innerHTML = total.toFixed(2);
+}
+
+/**
+Checks if a drink can be selected as well as if the item is in stock, then places in the cart if true
+@author Jack Hanna
+@param {String} size The size of the drink being ordered
+*/
+function checkSale(size){
+   if(!hasDrink){
+      switch(size){
+         case "Small":
+            itemSize = 0;
+            break;
+         case "Medium":
+            itemSize = 1;
+            break;
+         case "Large":
+            itemSize = 2;
+            break;
+         default:
+            itemSize = -1;
+            break;
+      }
+   
+      inputData = {
+         item: itemName,
+         size: itemSize
+      }
+   
+      $.ajax({
+         type: "POST",
+         url: "/checkSaleOrder",
+         data: inputData,
+         success: function(data){
+            //console.log("Request Recieved");
+            //$("#testText").textContent = data;
+            document.getElementById("testText").innerHTML = "In Stock: " + data.value;
+            if(data.value){
+               placeInCart(size);
+               hasDrink = true;
+               total = data.price;
+               document.getElementById("totalCheckoutCost").innerHTML = total.toFixed(2);
+            } else {
+               $("#modalSizeSelection").modal("hide");
+            }
+         },
+         error: function(error){
+            console.log("error");
+         }
+      })
+   } else {
+      document.getElementById("testText").innerHTML = "Drink Already Chosen";
+      $("#modalSizeSelection").modal("hide");
+   }
+}
+
+/**
+Checks if an addon can be selected as well as if the item is in stock, then places in the cart if true
+@author Jack Hanna
+@param {String} addon The name of the addon being ordered
+@param {String} category The category of the addon
+*/
+function checkAddon(addon, category){
+   if(hasDrink){
+      inputData = {
+         item: addon,
+         size: itemSize
+      }
+   
+      $.ajax({
+         type: "POST",
+         url: "/inStock",
+         data: inputData,
+         success: function(data){
+            if(data){
+               addons.push({name: addon, category: category});
+               addToTotal(category);
+               document.getElementById("testText").innerHTML = addon + " Added to Order, Category is " + category;
+               document.getElementById("testText2").innerHTML += addon + " ";
+            } else {
+               document.getElementById("testText").innerHTML = "Not in Stock";
+            }
+         },
+         error: function(error){
+            console.log("error");
+         }
+      })
+   } else {
+      document.getElementById("testText").innerHTML = "No Drink Chosen";
+   }
+   
+}
+
+$('#addToSalesHistory').click(function(event){
+   inputData = {
+      item: itemName,
+      size: itemSize
+   }
+
+   $.ajax({
+      type: "POST",
+      url: "/addToSalesHistory",
+      data: inputData,
+      error: function(error){
+         console.log("error");
+      }
+   })
+});
+
+/**
+Increments the total price of the order depending on the type of addon
+@author Jack Hanna
+@param {String} category The category of the selected addon
+*/
+function addToTotal(category){
+   switch(category){
+      case "Addon":
+         total += 0.1;
+         break;
+      case "Enhancer":
+         total += 0.2;
+         break;
+      case "Snack":
+         total += 0.3;
+         break;
+      default:
+         break;
+   }
+   document.getElementById("totalCheckoutCost").innerHTML = total.toFixed(2);
+}
+
+/**
+Decrements the total price of the order depending on the type of addon
+@author Jack Hanna
+@param {String} category The category of the removed addon
+*/
+function removeFromTotal(category){
+   switch(category){
+      case "Addon":
+         total -= 0.1;
+         break;
+      case "Enhancer":
+         total -= 0.2;
+         break;
+      case "Snack":
+         total -= 0.3;
+         break;
+      default:
+         break;
+   }
+   document.getElementById("totalCheckoutCost").innerHTML = total.toFixed(2);
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

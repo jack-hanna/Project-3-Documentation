@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/scripts/Customer.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/scripts/Customer.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* Script for customer page interactive elements
+   Developed by
+*/
+
+const langMap = {
+   'af': 'af-ZA',
+   'am': 'am-ET',
+   'ar': 'ar-SA',
+   'az': 'az-AZ',
+   'be': 'be-BY',
+   'bg': 'bg-BG',
+   'bn': 'bn-BD',
+   'bs': 'bs-BA',
+   'ca': 'ca-ES',
+   'ceb': 'ceb',
+   'co': 'co',
+   'cs': 'cs-CZ',
+   'cy': 'cy-GB',
+   'da': 'da-DK',
+   'de': 'de-DE',
+   'el': 'el-GR',
+   'en': 'en-US',
+   'eo': 'eo',
+   'es': 'es-ES',
+   'et': 'et-EE',
+   'eu': 'eu-ES',
+   'fa': 'fa-IR',
+   'fi': 'fi-FI',
+   'fil': 'fil-PH',
+   'fr': 'fr-FR',
+   'fy': 'fy-NL',
+   'ga': 'ga-IE',
+   'gd': 'gd-GB',
+   'gl': 'gl-ES',
+   'gu': 'gu-IN',
+   'ha': 'ha',
+   'haw': 'haw',
+   'he': 'he-IL',
+   'hi': 'hi-IN',
+   'hmn': 'hmn',
+   'hr': 'hr-HR',
+   'ht': 'ht',
+   'hu': 'hu-HU',
+   'hy': 'hy-AM',
+   'id': 'id-ID',
+   'ig': 'ig',
+   'is': 'is-IS',
+   'it': 'it-IT',
+   'ja': 'ja-JP',
+   'jv': 'jv',
+   'ka': 'ka-GE',
+   'kk': 'kk-KZ',
+   'km': 'km-KH',
+   'kn': 'kn-IN',
+   'ko': 'ko-KR',
+   'ku': 'ku',
+   'ky': 'ky-KG',
+   'la': 'la',
+   'lb': 'lb-LU',
+   'lo': 'lo-LA',
+   'lt': 'lt-LT',
+   'lv': 'lv-LV',
+   'mg': 'mg-MG',
+   'mi': 'mi',
+   'mk': 'mk-MK',
+   'ml': 'ml-IN',
+   'mn': 'mn-MN',
+   'mr': 'mr-IN',
+   'ms': 'ms-MY',
+   'mt': 'mt-MT',
+   'my': 'my-MM',
+   'ne': 'ne-NP',
+   'nl': 'nl-NL',
+   'no': 'no-NO',
+   'ny': 'ny',
+   'or': 'or-IN',
+   'pa': 'pa',
+   'pl': 'pl-PL',
+   'ps': 'ps-AF',
+   'pt': 'pt-PT',
+   'ro': 'ro-RO',
+   'ru': 'ru-RU',
+   'rw': 'rw',
+   'sd': 'sd',
+   'si': 'si-LK',
+   'sk': 'sk-SK',
+   'sl': 'sl-SI',
+   'sm': 'sm',
+   'sn': 'sn',
+   'so': 'so-SO',
+   'sq': 'sq-AL',
+   'sr': 'sr-RS',
+   'st': 'st',
+   'su': 'su',
+   'sv': 'sv-SE',
+   'sw': 'sw',
+   'ta': 'ta-IN',
+   'te': 'te-IN',
+   'tg': 'tg',
+   'th': 'th-TH',
+   'tk': 'tk',
+   'tl': 'tl-PH',
+   'tr': 'tr-TR',
+   'tt': 'tt',
+   'ug': 'ug',
+   'uk': 'uk-UA',
+   'ur': 'ur-PK',
+   'uz': 'uz-UZ',
+   'vi': 'vi-VN',
+   'xh': 'xh',
+   'yi': 'yi',
+   'yo': 'yo',
+   'zh-CN': 'zh-CN',
+   'zh-TW': 'zh-TW',
+   'zu': 'zu'
+}; 
+
+var itemName;
+/**
+ * This function initializes the smooth scrolling behavior when a link is clicked
+ * @function
+ * @name initSmoothScrolling
+ * @memberof jQuery
+ * @returns {void}
+ */
+$(document).ready(function(){
+    // Add smooth scrolling to all links
+    $("a").on('click', function(event) {
+        // Make sure this.hash has a value before overriding default behavior
+        if (this.hash !== "") {
+            // Prevent default anchor click behavior
+            event.preventDefault();
+            // Store hash
+            var hash = this.hash;
+            // Using jQuery's animate() method to add smooth page scroll
+            // The optional number (800) specifies the number of milliseconds it takes to scroll to the specified area
+            $('html, body').animate({
+                scrollTop: $(hash).offset().top
+            }, 800, function(){
+                // Add hash (#) to URL when done scrolling (default click behavior)
+                window.location.hash = hash;
+            });
+        } // End if
+    });
+    updateSpeakButtonsLanguage('en');
+});
+/**
+ * This function redirects the user to the home page
+ * @function
+ * @name homePage
+ * @returns {void}
+ */
+function homePage() {
+    window.location.href = "/";
+}
+/**
+ * This function adds the selected item to the cart with its size and selected extras
+ * @function
+ * @name placeInCart
+ * @returns {void}
+ */
+function placeInCart() {
+    // Get the selected size from the dropdown menu
+    var size = document.getElementById("sizeSelect").value;
+    // get the cart-items div
+    var cartItemsDiv = document.getElementById('cart-items');
+    // create a new div to hold each item and its remove button
+    var itemDiv = document.createElement('div');
+    itemDiv.className = 'cart-item';
+    // create a new p element to hold the item name
+    var itemNameP = document.createElement('p');
+    itemNameP.textContent = size + ' ' + itemName;
+    // add the item name and remove button to the item div
+    itemDiv.appendChild(itemNameP);
+    
+    // Get the selected extras from the modal
+    var selectedExtras = [];
+    var checkboxes = document.querySelectorAll('#extraItemModal input[type="checkbox"]');
+    for (var i = 0; i &lt; checkboxes.length; i++) {
+        if (checkboxes[i].checked) {
+            selectedExtras.push(checkboxes[i].nextElementSibling.textContent);
+        }
+    }
+    if (selectedExtras.length > 0) {
+        selectedExtras.forEach((selectedExtra) => {
+            selectedExtra = selectedExtra.trim();
+        });
+        var extrasP = document.createElement('p');
+        extrasP.textContent = selectedExtras.join(', ').trim();
+        itemDiv.appendChild(extrasP);
+    }
+    var removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn btn-danger btn-sm';
+    removeButton.textContent = 'Remove';
+    removeButton.addEventListener('click', function() {
+        // remove the item div from the cart-items div
+        cartItemsDiv.removeChild(itemDiv);
+    });
+    itemDiv.appendChild(removeButton);
+    
+    // add the item div to the cart-items div
+    // add the item div to the cart-items div
+    cartItemsDiv.appendChild(itemDiv);
+    // Get a reference to the modal element
+    const modal = document.querySelector('#extraItemModal');
+    // Get all checkboxes in the modal
+    const checkboxesRefresh = modal.querySelectorAll('input[type="checkbox"]');
+    // Loop through the checkboxes and uncheck them
+    checkboxesRefresh.forEach(function (checkbox) {
+        checkbox.checked = false;
+    });
+}
+/**
+ * This function initializes the modal with the item name when it is shown
+ * @function
+ * @name initModal
+ * @memberof jQuery.fn
+ * @param {Object} event - The event that triggered the modal
+ * @returns {void}
+ */
+$('#modalSizeSelection').on('show.bs.modal', function (event) {
+    var button = $(event.relatedTarget); // Button that triggered the modal
+    itemName = button.data('itemname'); // Extract item name from data attribute
+    // Do something with the item name, like display it in the modal or pass it to a function
+});
+/**
+ * This function retrieves the items in the cart, creates an array of objects with their properties, and logs the array to the console
+ * @function
+ * @name placeOrder
+ * @returns {void}
+ */
+function placeOrder() {
+    var cartItemsDiv = document.getElementById('cart-items');
+    var cartItems = cartItemsDiv.querySelectorAll('div');
+    var items = [];
+    var cartItems = Array.from(cartItemsDiv.querySelectorAll('div'));
+    
+    for (var i = 0; i &lt; cartItems.length; i++) {
+        var cartItem = cartItems[i];
+        var size = cartItem.querySelector('p').textContent.split(' ')[0];
+        var name = cartItem.querySelector('p').textContent.split(' ')[1];
+        var extras = [];
+
+        var extrasP = cartItem.querySelector('p:last-child');
+        if (extrasP) {
+            extras = extrasP.textContent.trim().trim().split(', ');
+        }
+
+        items.push({
+        name: name,
+        size: size,
+        extras: extras
+        });
+        
+        cartItemsDiv.removeChild(cartItem);
+    }
+
+    console.log(items);
+    }
+    /**
+    * Switches the stylesheet to the high-contrast version if the current stylesheet is the default one, and vice versa.
+    * Also stores the current stylesheet choice in local storage for persistence.
+    * @function
+    * @name contrast
+    * @returns {void}
+    * @example
+    * Call the function to toggle between the default and high-contrast stylesheets
+    contrast();
+    */
+    function contrast() {
+        var sheet = document.getElementById('mainStyleSheet');
+        if (sheet.getAttribute('href') == './styles/CustomerContrast.css') {
+            sheet.setAttribute('href', './styles/Customer.css');
+            localStorage.setItem("style", "./styles/Customer.css")
+        } else {
+            sheet.setAttribute('href', './styles/CustomerContrast.css');
+            localStorage.setItem("style", "./styles/CustomerContrast.css")
+        }
+    }
+
+// Get all the speak buttons on the page
+/*
+const speakButtons = document.querySelectorAll('.speakButton');
+
+// Add event listeners to each speak button
+console.log(speakButtons.length);
+speakButtons.forEach(speakButton => {
+    speakButton.addEventListener('click', () => {
+        // Get the ID of the item to read from the data-itemname attribute
+        const itemName = speakButton.dataset.itemname;
+        console.log(itemName);
+        const textToSpeak = document.getElementById(itemName);
+        const speech = new SpeechSynthesisUtterance();
+        const lang = document.documentElement.lang; // Get the language code of the page
+        speech.lang = langMap[lang] || lang;
+        //speech.lang= 'en-US';
+        speech.text = textToSpeak.querySelector('h3').textContent + ' ' + textToSpeak.querySelector('p').textContent;
+        speechSynthesis.speak(speech);
+        console.log("COMPLETE: " + speech.lang);
+    });
+});
+*/
+/**
+ * Initializes the Google Translate Element.
+ *
+ * @function
+ * @name googleTranslateElementInit
+ * @global
+ *
+ * @returns {void}
+ *
+ * @description
+ * This function initializes the Google Translate Element, which is used to translate the webpage into different languages. It creates a new instance of the `google.translate.TranslateElement` class and passes in an object with the page language and layout options. It then attaches the Translate Element to the HTML element with the ID "google_translate_element".
+ *
+ * @see {@link https://developers.google.com/translate/v2/getting_started#Step2-1 | Google Translate API Documentation}
+ */
+function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+        pageLanguage: 'en',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+    }, 'google_translate_element');
+}
+/**
+ * Update the language for all speak buttons on the menu.
+ *
+ * @param {string} lang - The language code to use for speech synthesis.
+ * @returns {void}
+ */
+function updateSpeakButtonsLanguage(lang) {
+    const speakButtons = document.querySelectorAll('.speakButton');
+    /**
+   * Event handler for speak button clicks.
+   *
+   * @param {MouseEvent} e - The click event.
+   * @returns {void}
+   */
+    // Define the event handler function
+    const speakButtonClickHandler = (e) => {
+        console.log("in clicker");
+        // Get the ID of the item to read from the data-itemname attribute
+        itemName = e.target.dataset.itemname;
+        console.log(itemName);
+        const textToSpeak = document.getElementById(itemName);
+        const speech = new SpeechSynthesisUtterance();
+        speech.lang = langMap[lang] || lang;
+        speech.text = textToSpeak.querySelector('h3').textContent + ', Ingredients ' + textToSpeak.querySelector('p').textContent;
+        speechSynthesis.speak(speech);
+        console.log("COMPLETE: " + speech.lang);
+    };
+
+    // Add event listeners to each speak button
+    //console.log(speakButtons.length);
+    speakButtons.forEach(speakButton => {
+        const newButton = speakButton.cloneNode(true);
+        newButton.setAttribute('data-itemname', speakButton.getAttribute('data-itemname'));
+        newButton.setAttribute('class', 'btn menu-btn speakButton');
+        speakButton.parentNode.replaceChild(newButton, speakButton);
+        console.log("new button " + newButton.getAttribute('data-itemname'));
+    });
+
+    const newSpeakButtons = document.querySelectorAll('.speakButton');
+    console.log(newSpeakButtons.length);
+    newSpeakButtons.forEach(speakButton => {
+        speakButton.addEventListener('click', speakButtonClickHandler);
+    });
+}
+
+// Get the HTML element
+const htmlElement = document.querySelector('html');
+
+// Get the initial language
+let currentLang = htmlElement.lang;
+
+/**
+ * Handles changes to the `lang` attribute of the HTML element. If the language has changed,
+ * updates the language used by the speak buttons.
+ */
+// Function to handle changes to the 'lang' attribute
+function handleLangAttributeChange() {
+    const newLang = htmlElement.lang;
+    
+    // Only update if the language has changed
+    if (newLang !== currentLang) {
+        currentLang = newLang;
+        console.log("language changed");
+        updateSpeakButtonsLanguage(currentLang);
+    }
+}
+
+// Set up the observer to monitor changes to the 'lang' attribute
+const observer = new MutationObserver(handleLangAttributeChange);
+observer.observe(htmlElement, { attributes: true, attributeFilter: ['lang'] });
+/**
+ * Function that is triggered when the window loads.
+ * It checks if any data is stored in the local storage and sets the mainStyleSheet attribute to the saved style if found.
+ *
+ * @returns {void}
+ */
+window.onload = function(){
+   if(localStorage.length != 0){
+      document.getElementById('mainStyleSheet').setAttribute("href", localStorage.getItem("style"));
+   }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

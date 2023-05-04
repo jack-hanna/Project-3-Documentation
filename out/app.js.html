@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: app.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: app.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* 
+app.js
+Backend Script for the Express Project
+Developed by Jack Hanna
+*/
+/*---------------Includes---------------*/
+//Setup express components
+const express = require("express");
+const app = express();
+const port = process.env.PORT || 3000;
+
+//Setup dbFunctions Class
+const dbFunctions = require("./public/scripts/dbFunctions");
+const helper = new dbFunctions();
+
+// body parsing for functions
+const bodyParser = require("body-parser");
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true}));
+
+const { auth, requiresAuth } = require('express-openid-connect');
+require('dotenv').config();
+
+const config = {
+  authRequired: false,
+  auth0Logout: true,
+  secret: process.env.SECRET,
+  baseURL: process.env.BASEURL,
+  clientID: process.env.CLIENTID,
+  issuerBaseURL: process.env.ISSUER,
+  routes: {
+      login: false,
+      postLogoutRedirect: process.env.BASEURL
+  },
+};
+
+var dbConfig = {
+  client: 'pg',
+  connection: {
+      host: process.env.PSQL_HOST,
+      port: process.env.PSQL_PORT,
+      user: process.env.PSQL_USER,
+      password: process.env.PSQL_PASSWORD,
+      database: process.env.PSQL_DATABASE,
+  },
+};
+
+/*---------------Global Variables---------------*/
+//Menu
+var energizedBlends = [];
+var fitBlends = [];
+var weightBlends = [];
+var wellBlends = [];
+var treatBlends = [];
+var exItems = [];
+var addonItems = [];
+var enhancerItems = [];
+var snackItems = [];
+//Manager Tables
+var employees = {ids: [], names: [], positions: []};
+var menu = {items: [], prices: [], categories: [], ingredients: []};
+var inventory = {items: [], tSizes: [], bSizes: [], bUnits: [], bCosts: [], sizes: [], categories: []};
+var sales = {orders: [], servers: [], items: [], sizes: [], dates: [], times: [], costs: [], games: []};
+var reorders = {orders: [], items: [], costs: [], dates: [], times: [], managers: []};
+var zReports = {id: [], date: [], time: [], total: []};
+/*---------------Data Collection---------------*/
+
+helper.getItemsFromCategory("inventory", "itemname", "Addon").then(
+  function(value) {exItems = value},
+  function(error) {exItems = ["Addons failed to load"]}
+);
+helper.getItemsFromCategory("inventory", "itemname", "Enhancer").then(
+  function(value) {exItems.concat(value)},
+  function(error) {exItems.concat(["Enhancers failed to load"])}
+);
+helper.getItemsFromCategory("inventory", "itemname", "Snack").then(
+  function(value) {snackItems = value},
+  function(error) {snackItems = ["Snacks failed to load"]}
+);
+
+/*----------Manager----------*/
+//Employee Table
+updateEmployees();
+//Menu Table
+updateMenu();
+//Inventory Table
+updateInventory();
+//Sales History Table
+updateSales();
+//Reorder History Table
+updateReorders();
+
+// z reports
+helper.getColumn("zreports", "reportid").then(
+  function(value){
+    zReports.id = value;
+    zReports.id.reverse();
+  }
+);
+helper.getColumn("zreports", "date").then(
+  function(value){
+    zReports.date = value;
+    zReports.date.reverse();
+  }
+);
+helper.getColumn("zreports", "time").then(
+  function(value){
+    zReports.time = value;
+    zReports.time.reverse();
+  }
+);
+helper.getColumn("zreports", "total").then(
+  function(value){
+    zReports.total = value;
+    zReports.total.reverse();
+  }
+);
+/*--------------- MANAGER FUNCS --------------*/
+// add employee
+app.post('/addEmployee', (req, res) => {
+  const name = req.body.name;
+  const id = parseInt(req.body.id);
+  const position = req.body.pos;
+  helper.addEmployee(id, name, position).then(
+    function(value){updateEmployees();}
+  );
+})
+// remove employee
+app.post('/removeEmployee', (req, res) => {
+  const id = req.body.id;
+  helper.removeEmployee(id).then(
+    function(value){updateEmployees();}
+  );
+})
+// add menu item
+app.post('/addMenuItem', (req, res) => {
+  const n = req.body.name;
+  const s = req.body.sprice;
+  const m = req.body.mprice;
+  const l = req.body.lprice;
+  const i = req.body.ingre;
+  const c = req.body.cat;
+  helper.addMenuItem(n, s, m, l, i, c).then(
+    function(value){updateMenu();}
+  );
+})
+// remove menu item
+app.post('/removeMenuItem', (req, res) => {
+  const name = req.body.name;
+  helper.removeMenuItem(name).then(
+    function(value){updateMenu();}
+  );
+})
+// update menu item
+app.post('/updateMenuItem', (req, res) => {
+  const name = req.body.name;
+  const size = req.body.size;
+  const price = req.body.price;
+  helper.changePriceMenu(name, size, price).then(
+    function(value){updateMenu();}
+  );
+})
+// remove inventory item
+app.post('/removeInventoryItem', (req, res) => {
+  const name = req.body.name;
+  helper.removeInventoryItem(name).then(
+    function(value){updateInventory();}
+  );
+})
+// add inventory item
+app.post('/addInventoryItem', (req, res) => {
+  const name = req.body.name;
+  helper.addToInventory(name).then(
+    function(value){updateInventory();}
+  );
+})
+// update inventory item
+app.post('/updateInventoryItem', (req, res) => {
+  const name = req.body.name;
+  const stock = req.body.stock;
+  const bulk = req.body.bulk;
+  const measure = req.body.measure;
+  const price = req.body.price;
+  const sizing = req.body.sizing;
+
+  helper.updateInventoryInfo(name, stock, bulk, measure, price, sizing).then(
+    function(value){updateInventory();}
+  );
+})
+// update inventory item price
+app.post('/updateInventoryItemPrice', (req, res) => {
+  const name = req.body.name;
+  const price = req.body.price;
+
+  helper.changePriceBulk(name, price).then(
+    function(value){updateInventory();}
+  );
+})
+// reorder
+app.post('/reorderInventoryItems', (req, res) => {
+  const items = req.body.items;
+  console.log(items);
+  for (let i = 0; i &lt; items.length; i++) {
+    const item = items[i];
+    helper.addOrderItem(item).then();
+  }
+  helper.submitOrder(2).then(
+    function(value){
+      updateInventory();
+      updateReorders();
+    }
+  );
+});
+// x report returns numbers
+app.get('/xReport', async (req, res) => {
+  try {
+    const reportData = await helper.xReport();
+    res.status(200).json({ data:reportData});
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+// z report returns numbers
+app.get('/zReport', async (req, res) => {
+  try {
+    const reportData = await helper.zReport();
+    res.status(200).json({ data:reportData});
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+// restock report returns something
+app.get('/restockReport', async (req, res) => {
+  try {
+    const reportData = await helper.restockReport();
+    res.status(200).json({ data:reportData});
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+// excess report
+app.get('/excessReport', async (req, res) => {
+  const date = req.body.date;
+  const time = req.body.time;
+  try {
+    const reportData = await helper.excessReport(date, time);
+    res.status(200).json({ data:reportData});
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+// drinks
+app.get('/getSoldDrinks', async (req, res) => {
+  try {
+    // Query database to get drink data
+    const drinkData = await helper.getColumnLimited("saleshistory", "orderitem");
+    // console.log(drinkData);
+    // Send drink data as JSON response
+    // res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({data:drinkData});
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(500);
+  }
+});
+
+
+/*---------------Server Functions---------------*/
+app.post("/checkSaleOrder", (req, res) => {
+  console.log(req.body);
+  helper.checkSaleOrder(req.body.item, req.body.size).then(
+    function(value){
+      var colName = "";
+      switch(req.body.size){
+        case 1:
+          colName = "mprice";
+          break;
+        case 2:
+          colName = "lprice";
+          break;
+        default:
+          colName = "sprice";
+          break;
+      }
+      helper.getElement("menuitem", "item", req.body.item, colName).then(
+        function(price){
+          res.send({value: value, price: parseFloat(price)});
+        }
+      )
+    }
+  );
+});
+
+app.post("/inStock", (req, res) => {
+  console.log(req.body);
+  helper.inStock(req.body.item, req.body.size).then(
+    function(value){
+      res.send(value);
+    }
+  )
+});
+
+app.post("/placeOrder", (req, res) => {
+  console.log(req.body);
+  helper.addSale(req.body.item, req.body.size, parseFloat(req.body.price), 4).then(
+    function(value){updateSales();}
+  ); //Replace With Employee ID
+  if(req.body.addons != undefined){
+    req.body.addons.forEach(
+      function(addon){
+        //Deduct addons
+        helper.deductItem(addon, req.body.size);
+      }
+    )
+    updateInventory();
+  }
+});
+
+/*---------------Page Rendering---------------*/
+
+app.set("view engine", "ejs");
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(auth(config));
+app.use(function(req, res, next) {
+  req.dbConfig = dbConfig;
+  next();
+})
+
+app.use(express.static("public"));
+
+app.use("*", (req, res, next) => {
+  energizedBlends = getCategory("Feel Energized Blend");
+  fitBlends = getCategory("Get Fit Blend");
+  weightBlends = getCategory("Manage Weight Blends");
+  wellBlends = getCategory("Be Well Blends");
+  treatBlends = getCategory("Enjoy A Treat Blends");
+  addonItems = getAddonCategory("Addon");
+  enhancerItems = getAddonCategory("Enhancer");
+  snackItems = getAddonCategory("Snack");
+  next();
+});
+
+app.get("/", (req, res) => {
+  res.render('Home', {
+    isAuthenticated: req.oidc.isAuthenticated(),
+    user: req.oidc.user,
+  });
+});
+
+app.get('/login', requiresAuth(), (req, res) => {
+  const position = req.oidc.user.nickname;
+  if (position == 'Server' || position == 'test') {
+    res.redirect('/Server');
+  } else if (position == 'Manager' || position == 'CEO') {
+    res.redirect('/Manager');
+  } else {
+    res.redirect('/');
+  }
+});
+
+app.get('/logout', (req, res) => {
+  req.oidc.logout();
+  res.redirect('/');
+});
+
+app.get("/Server", requiresAuth(), (req, res) => {
+  res.render('Server', {
+    isAuthenticated: req.oidc.isAuthenticated(),
+    energizedBlends: energizedBlends,
+    fitBlends: fitBlends,
+    weightBlends: weightBlends,
+    wellBlends: wellBlends,
+    treatBlends: treatBlends,
+    addonItems: addonItems,
+    enhancerItems: enhancerItems,
+    snackItems: snackItems
+  });
+});
+
+app.get("/Manager", requiresAuth(), (req, res) => {
+  res.render('Manager', {
+    isAuthenticated: req.oidc.isAuthenticated(),
+    employees: employees,
+    menu: menu,
+    inventory: inventory,
+    sales: sales,
+    reorders: reorders,
+    zReports: zReports
+  });
+});
+
+app.get("/Customer", (req, res) => {
+  res.render('Customer', {
+    energizedBlends: energizedBlends,
+    fitBlends: fitBlends,
+    weightBlends: weightBlends,
+    wellBlends: wellBlends,
+    treatBlends: treatBlends,
+    exItems: exItems,
+    inventory: inventory
+  });
+});
+
+app.get("/Menu", (req, res) => {
+  res.render('Menu', {
+    energizedBlends: energizedBlends,
+    fitBlends: fitBlends,
+    weightBlends: weightBlends,
+    wellBlends: wellBlends,
+    treatBlends: treatBlends,
+    exItems: exItems
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Application is listening on port ${port}!`);
+});
+
+/**
+Parses the items of the menu table from a specified category
+@author Jack Hanna
+@param {String} category The category of drink chosen
+@returns {String[]} A list of the items from the chosen category
+*/
+function getCategory(category){
+  var output = [];
+  for(let i = 0; i &lt; menu.items.length; i++){
+    if(menu.categories[i] == category){
+      output.push({name: menu.items[i], ingredients: menu.ingredients[i], prices: menu.prices[i]});
+    }
+  }
+
+  return output;
+}
+
+/**
+Parses the items of the inventory table from a specified category
+@author Jack Hanna
+@param {String} category The category of item chosen
+@returns {String[]} A list of the items from the chosen category
+*/
+function getAddonCategory(category){
+  var output = [];
+  for(let j = 0; j &lt; inventory.items.length; j++){
+    if(inventory.categories[j] == category){
+      output.push({name: inventory.items[j], category: inventory.categories[j]});
+    }
+  }
+
+  return output;
+}
+
+/**
+Refreshes the values of the items in the employee table from the database
+@author Jack Hanna
+*/
+function updateEmployees(){
+  helper.getColumn("employeelist", "id").then(
+    function(value){
+      employees.ids = value;
+    }
+  );
+  helper.getColumn("employeelist", "ename").then(
+    function(value){
+      employees.names = value;
+    }
+  );
+  helper.getColumn("employeelist", "position").then(
+    function(value){
+      employees.positions = value;
+    }
+  );
+}
+
+/**
+Refreshes the values of the items in the menu table from the database
+@author Jack Hanna
+*/
+function updateMenu(){
+  helper.getColumn("menuitem", "item").then(
+    function(value){
+      menu.items = value;
+    }
+  );
+  helper.getColumn("menuitem", "sprice").then(
+    function(value){
+      helper.getColumn("menuitem", "mprice").then(
+        function(value1){
+          helper.getColumn("menuitem", "lprice").then(
+            function(value2){
+              for(let i = 0; i &lt; value.length; i++){
+                menu.prices.push([value[i], value1[i], value2[i]]);
+              }
+            }
+          );
+        }
+      );
+    }
+  );
+  helper.getColumn("menuitem", "category").then(
+    function(value){
+      menu.categories = value;
+      energizedBlends = getCategory("Feel Energized Blend");
+    }
+  );
+  helper.getColumn("menuitem", "ingredients").then(
+    function(value){
+      menu.ingredients = value;
+    }
+  );
+}
+
+/**
+Refreshes the values of the items in the inventory table from the database
+@author Jack Hanna
+*/
+function updateInventory(){
+  helper.getColumn("inventory", "itemname").then(
+    function(value){
+      inventory.items = value;
+    }
+  );
+  helper.getColumn("inventory", "totalsize").then(
+    function(value){
+      inventory.tSizes = value;
+    }
+  );
+  helper.getColumn("inventory", "bulksize").then(
+    function(value){
+      inventory.bSizes = value;
+    }
+  );
+  helper.getColumn("inventory", "bulkunits").then(
+    function(value){
+      inventory.bUnits = value;
+    }
+  );
+  helper.getColumn("inventory", "bulkcost").then(
+    function(value){
+      inventory.bCosts = value;
+    }
+  );
+  helper.getColumn("inventory", "sizing").then(
+    function(value){
+      inventory.sizes = value;
+    }
+  );
+  helper.getColumn("inventory", "category").then(
+    function(value){
+      inventory.categories = value;
+    }
+  );
+}
+
+/**
+Refreshes the values of the items in the sales history table from the database
+@author Jack Hanna
+*/
+function updateSales(){
+  helper.getColumnLimited("saleshistory", "orderid").then(
+    function(value){
+      sales.orders = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "serverid").then(
+    function(value){
+      sales.servers = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "orderitem").then(
+    function(value){
+      sales.items = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "size").then(
+    function(value){
+      sales.sizes = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "date").then(
+    function(value){
+      sales.dates = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "time").then(
+    function(value){
+      sales.times = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "ordercost").then(
+    function(value){
+      sales.costs = value;
+    }
+  );
+  helper.getColumnLimited("saleshistory", "gameday").then(
+    function(value){
+      sales.games = value;
+    }
+  );
+}
+
+/**
+Refreshes the values of the items in the reorder history table from the database
+@author Jack Hanna
+*/
+function updateReorders(){
+  helper.getColumnLimited("reorderhistory", "orderid").then(
+    function(value){
+      reorders.orders = value;
+    }
+  );
+  helper.getColumnLimited("reorderhistory", "ingredients").then(
+    function(value){
+      reorders.ingredients = value;
+    }
+  );
+  helper.getColumnLimited("reorderhistory", "ordercost").then(
+    function(value){
+      reorders.costs = value;
+    }
+  );
+  helper.getColumnLimited("reorderhistory", "date").then(
+    function(value){
+      reorders.dates = value;
+    }
+  );
+  helper.getColumnLimited("reorderhistory", "time").then(
+    function(value){
+      reorders.times = value;
+    }
+  );
+  helper.getColumnLimited("reorderhistory", "managerid").then(
+    function(value){
+      reorders.managers = value;
+    }
+  );
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html##updateInventoryItemFunction">#updateInventoryItemFunction</a></li><li><a href="global.html#addIcon">addIcon</a></li><li><a href="global.html#addToTotal">addToTotal</a></li><li><a href="global.html#changePage">changePage</a></li><li><a href="global.html#checkAddon">checkAddon</a></li><li><a href="global.html#checkSale">checkSale</a></li><li><a href="global.html#contrast">contrast</a></li><li><a href="global.html#getAddonCategory">getAddonCategory</a></li><li><a href="global.html#getCategory">getCategory</a></li><li><a href="global.html#getWeatherIconClass">getWeatherIconClass</a></li><li><a href="global.html#googleTranslateElementInit">googleTranslateElementInit</a></li><li><a href="global.html#handleLangAttributeChange">handleLangAttributeChange</a></li><li><a href="global.html#homePage">homePage</a></li><li><a href="global.html#onload">onload</a></li><li><a href="global.html#placeInCart">placeInCart</a></li><li><a href="global.html#placeOrder">placeOrder</a></li><li><a href="global.html#removeFromTotal">removeFromTotal</a></li><li><a href="global.html#updateEmployees">updateEmployees</a></li><li><a href="global.html#updateInventory">updateInventory</a></li><li><a href="global.html#updateMenu">updateMenu</a></li><li><a href="global.html#updateReorders">updateReorders</a></li><li><a href="global.html#updateSales">updateSales</a></li><li><a href="global.html#updateSpeakButtonsLanguage">updateSpeakButtonsLanguage</a></li><li><a href="global.html#updateWeather">updateWeather</a></li><li><a href="global.html#viewCharts1">viewCharts1</a></li><li><a href="global.html#viewCharts2">viewCharts2</a></li><li><a href="global.html#viewOrderHistory">viewOrderHistory</a></li><li><a href="global.html#viewSalesHistory">viewSalesHistory</a></li><li><a href="global.html#viewZReports">viewZReports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Wed May 03 2023 23:54:18 GMT-0500 (Central Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
